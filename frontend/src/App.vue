@@ -27,16 +27,28 @@ const rpmUnit = ref<string>('RPM');
 const speedUnit = ref<string>('km/h');
 const lastError = ref<string | null>(null);
 const messages = ref<string[]>([]);
-const currentDateTime = ref(new Date().toISOString().replace('T', ' ').substring(0, 19)); // YYYY-MM-DD HH:MM:SS
+
+// Current user login
+const currentUser = ref('kunihir0');
+
+// Current date/time in UTC format (YYYY-MM-DD HH:MM:SS)
+const currentDateTime = ref('2025-05-12 05:28:36');
+
+// Update the date/time every second with proper UTC format
+const updateDateTime = () => {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  const hours = String(now.getUTCHours()).padStart(2, '0');
+  const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+  currentDateTime.value = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 
 // Configure gauge ranges - these determine the scale of the gauges
 const maxRpm = 8000;
 const maxSpeed = 220;
-
-// Update the date/time every second
-setInterval(() => {
-  currentDateTime.value = new Date().toISOString().replace('T', ' ').substring(0, 19);
-}, 1000);
 
 // Compute fill percentages based on current values
 const rpmPercentage = computed(() => {
@@ -120,6 +132,8 @@ const connectWebSocket = () => {
 // Lifecycle hooks
 onMounted(() => {
   connectWebSocket();
+  // Set up the timer to update date/time
+  setInterval(updateDateTime, 1000);
   
   // Simulate some data for development/demo
   if (import.meta.env.DEV) {
@@ -177,36 +191,47 @@ const speedTicks = computed(() => {
 <template>
   <div class="car-hud-wrapper">
     <div class="car-hud glass-panel">
-      <div class="hud-header">
+      <!-- Top Header Bar -->
+      <div class="hud-header glass-panel">
         <div class="header-left">
-          <h1>NightDrive HUD</h1>
+          <h1>qWp</h1>
+        </div>
+        <div class="header-center">
           <div class="datetime">{{ currentDateTime }}</div>
         </div>
-        <div class="connection-status">
-          <span class="status-label">System Status:</span>
-          <span class="status-indicator">
-            <span 
-              class="status-dot" 
-              :class="{
-                'connected': connectionStatus === 'connected',
-                'connecting': connectionStatus === 'connecting',
-                'error': connectionStatus === 'error',
-                'disconnected': connectionStatus === 'disconnected',
-                'pulse': pulseActive
-              }"
-            ></span>
-            {{ connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1) }}
-          </span>
+        <div class="header-right">
+          <div class="user-info">
+            <span class="user-avatar">👤</span>
+            <span class="user-name">{{ currentUser }}</span>
+          </div>
+          <div class="connection-status">
+            <span class="status-label">System Status:</span>
+            <span class="status-indicator">
+              <span 
+                class="status-dot" 
+                :class="{
+                  'connected': connectionStatus === 'connected',
+                  'connecting': connectionStatus === 'connecting',
+                  'error': connectionStatus === 'error',
+                  'disconnected': connectionStatus === 'disconnected',
+                  'pulse': pulseActive
+                }"
+              ></span>
+              {{ connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1) }}
+            </span>
+          </div>
         </div>
       </div>
       
+      <!-- Error Message (if any) -->
       <div v-if="lastError" class="error-message glass-panel">
         <div class="error-icon">⚠️</div>
         <div class="error-text">{{ lastError }}</div>
       </div>
       
-      <div class="dashboard-layout">
-        <!-- RPM Gauge -->
+      <!-- Main Content Area - Using a wider horizontal layout -->
+      <div class="main-content">
+        <!-- Left Column: RPM Gauge -->
         <div class="gauge rpm-gauge glass-panel">
           <div class="gauge-header">
             <div class="gauge-label">Engine RPM</div>
@@ -240,18 +265,20 @@ const speedTicks = computed(() => {
           </div>
         </div>
         
-        <!-- Vehicle Model Placeholder -->
-        <div class="vehicle-model-placeholder glass-panel">
-          <div class="model-container">
-            <div class="model-label">Vehicle Model</div>
-            <div class="model-placeholder">
-              <div class="car-silhouette"></div>
-              <span class="placeholder-text">3D Model Coming Soon</span>
+        <!-- Center Column: Vehicle Model -->
+        <div class="center-column">
+          <div class="vehicle-model-placeholder glass-panel">
+            <div class="model-container">
+              <div class="model-label">Vehicle Model</div>
+              <div class="model-placeholder">
+                <div class="car-silhouette"></div>
+                <span class="placeholder-text">3D Model Coming Soon</span>
+              </div>
             </div>
           </div>
         </div>
         
-        <!-- Speedometer Gauge -->
+        <!-- Right Column: Speed Gauge -->
         <div class="gauge speed-gauge glass-panel">
           <div class="gauge-header">
             <div class="gauge-label">Vehicle Speed</div>
@@ -286,14 +313,14 @@ const speedTicks = computed(() => {
         </div>
       </div>
       
-      <!-- System Messages Log -->
+      <!-- Bottom Row: System Messages Log -->
       <div class="system-log glass-panel">
         <div class="log-header">
           <h2>System Messages</h2>
         </div>
         <div class="log-container">
           <ul class="log-messages">
-            <li v-for="(msg, index) in messages.slice().reverse().slice(0, 5)" :key="index"
+            <li v-for="(msg, index) in messages.slice().reverse().slice(0, 6)" :key="index"
                 :class="{ 
                   'error-log': msg.toLowerCase().includes('error'),
                   'connect-log': msg.toLowerCase().includes('connect')
@@ -311,21 +338,26 @@ const speedTicks = computed(() => {
 </template>
 
 <style>
-/* Global styles to reset body and html to ensure our app is centered correctly */
+/* Global styles to ensure full-width layout */
 html, body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   overflow-x: hidden;
   background-color: #0f1218;
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
 }
 </style>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap');
 
-/* CSS Variables for consistent theming */
+/* CSS Variables */
 :root {
   /* Colors */
   --bg-dark: #0f1218;
@@ -351,33 +383,32 @@ html, body {
   --blur-strength: 10px;
 }
 
-/* Layout and App Container Styles - EXPANDED FOR LARGER SCREEN USAGE */
+/* Main Container - FIXED FOR FULL WIDTH CENTERING */
 .car-hud-wrapper {
   font-family: 'Titillium Web', 'Segoe UI', Helvetica, Arial, sans-serif;
+  width: 100vw; /* Use viewport width */
   min-height: 100vh;
-  width: 100%;
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
   background-color: var(--bg-dark);
   background-image: 
     radial-gradient(circle at 10% 20%, rgba(79, 209, 197, 0.1), transparent 30%),
     radial-gradient(circle at 80% 10%, rgba(99, 179, 237, 0.1), transparent 30%),
     radial-gradient(circle at 50% 80%, rgba(246, 173, 85, 0.05), transparent 40%);
   color: var(--text-primary);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  padding: 1rem;
   box-sizing: border-box;
 }
 
 .car-hud {
-  width: 100%;
-  max-width: 90%; /* Increased from 1200px to use more space */
-  min-height: 85vh; /* Use most of the viewport height */
-  padding: 35px;
-  margin: 0 auto;
-  overflow: hidden;
+  width: 75vw; /* Nearly full viewport width */
+  max-width: 1800px;
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  padding: 0; /* Remove padding from container, add to children */
+  margin: 0 auto; /* Center horizontally */
 }
 
 /* Glassmorphism Style */
@@ -389,6 +420,7 @@ html, body {
   -webkit-backdrop-filter: blur(var(--blur-strength));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  padding: 20px;
 }
 
 .glass-panel:hover {
@@ -401,25 +433,36 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-wrap: nowrap; /* Prevent wrapping by default */
 }
 
 .header-left {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.header-center {
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 .datetime {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  margin-top: 5px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 h1 {
-  font-size: 3rem; /* Increased from 2.2rem */
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
   text-shadow: 0 0 20px rgba(79, 209, 197, 0.6);
@@ -427,11 +470,30 @@ h1 {
   margin: 0;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--glass-border);
+}
+
+.user-avatar {
+  font-size: 1.2rem;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--accent-secondary);
+}
+
 .connection-status {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 24px;
+  padding: 8px 16px;
   border-radius: var(--border-radius-md);
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--glass-border);
@@ -439,7 +501,7 @@ h1 {
 
 .status-label {
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .status-indicator {
@@ -447,13 +509,13 @@ h1 {
   align-items: center;
   gap: 10px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .status-dot {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--status-disconnected);
 }
@@ -469,7 +531,7 @@ h1 {
 
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
-  70% { box-shadow: 0 0 0 12px rgba(72, 187, 120, 0); }
+  70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
   100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
 }
 
@@ -478,36 +540,37 @@ h1 {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin-bottom: 30px;
-  padding: 18px 24px;
+  padding: 15px 20px;
   background: rgba(229, 62, 62, 0.15);
   border-color: rgba(229, 62, 62, 0.3);
 }
 
 .error-icon {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
 }
 
 .error-text {
   font-weight: 600;
   color: #fbd38d;
   word-break: break-word;
-  font-size: 1.1rem;
 }
 
-/* Dashboard Layout - EXPANDED */
-.dashboard-layout {
+/* Main Content - WIDE HORIZONTAL LAYOUT */
+.main-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 30px;
-  margin-bottom: 30px;
-  width: 100%;
-  flex: 1; /* Take up available space */
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 20px;
+  height: 350px;
 }
 
-/* Gauge Common Styles - LARGER */
+/* Center column styling */
+.center-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Gauge Common Styles */
 .gauge {
-  padding: 25px;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -522,7 +585,7 @@ h1 {
 }
 
 .gauge-label {
-  font-size: 1.25rem; /* Increased from 1rem */
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -530,7 +593,7 @@ h1 {
 }
 
 .gauge-range {
-  font-size: 0.95rem; /* Increased from 0.8rem */
+  font-size: 0.9rem;
   color: var(--text-secondary);
   opacity: 0.7;
 }
@@ -542,7 +605,7 @@ h1 {
 }
 
 .gauge-value {
-  font-size: 3.5rem; /* Increased from 2.8rem */
+  font-size: 3rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-right: 10px;
@@ -552,15 +615,15 @@ h1 {
 }
 
 .gauge-unit {
-  font-size: 1.2rem; /* Increased from 1rem */
+  font-size: 1.1rem;
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .gauge-bar-container {
   position: relative;
-  height: 16px; /* Increased from 12px */
-  margin-bottom: 30px; /* Increased from 24px */
+  height: 15px;
+  margin-bottom: 30px;
   width: 100%;
   overflow: hidden;
 }
@@ -603,7 +666,7 @@ h1 {
 .gauge-tick {
   position: absolute;
   width: 2px;
-  height: 16px; /* Match gauge height */
+  height: 15px;
   background: rgba(255, 255, 255, 0.2);
   transform: translateX(-50%);
 }
@@ -620,7 +683,7 @@ h1 {
 .gauge-scale span {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 0.85rem; /* Increased from 0.7rem */
+  font-size: 0.85rem;
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -634,12 +697,11 @@ h1 {
   color: var(--accent-secondary);
 }
 
-/* Vehicle Model Placeholder - LARGER */
+/* Vehicle Model Placeholder */
 .vehicle-model-placeholder {
-  display: flex;
-  flex-direction: column;
-  padding: 25px;
-  min-width: 0;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
 }
 
 .model-container {
@@ -648,13 +710,14 @@ h1 {
   align-items: center;
   height: 100%;
   width: 100%;
+  padding: 20px;
 }
 
 .model-label {
-  font-size: 1.25rem; /* Increased from 1rem */
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
@@ -671,7 +734,6 @@ h1 {
   justify-content: center;
   position: relative;
   overflow: hidden;
-  min-height: 250px; /* Increased from 150px */
 }
 
 /* Add a simple car silhouette */
@@ -686,7 +748,7 @@ h1 {
 }
 
 .placeholder-text {
-  font-size: 1.1rem; /* Increased from 0.9rem */
+  font-size: 1rem;
   color: var(--text-secondary);
   font-style: italic;
   position: relative;
@@ -709,28 +771,29 @@ h1 {
   100% { transform: translateX(100%); }
 }
 
-/* System Log - LARGER */
+/* System Log - FIXED EXPANSION ISSUE */
 .system-log {
-  padding: 25px;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .log-header {
-  margin-bottom: 18px;
-  padding-bottom: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .log-header h2 {
-  font-size: 1.25rem; /* Increased from 1.1rem */
+  font-size: 1.15rem;
   font-weight: 600;
   color: var(--text-secondary);
   margin: 0;
 }
 
 .log-container {
-  max-height: 180px; /* Increased from 150px */
+  height: 120px; /* Fixed height */
   overflow-y: auto;
   width: 100%;
 }
@@ -740,20 +803,18 @@ h1 {
   padding: 0;
   margin: 0;
   width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 10px;
 }
 
 .log-messages li {
-  padding: 12px 18px; /* Increased padding */
-  margin-bottom: 8px; /* Increased from 6px */
+  padding: 10px 15px;
   border-radius: var(--border-radius-sm);
   background: rgba(0, 0, 0, 0.2);
-  font-size: 1rem; /* Increased from 0.85rem */
+  font-size: 0.9rem;
   color: var(--text-primary);
   word-break: break-word;
-}
-
-.log-messages li:last-child {
-  margin-bottom: 0;
 }
 
 .log-messages li.error-log {
@@ -770,11 +831,13 @@ h1 {
   color: var(--text-secondary);
   font-style: italic;
   text-align: center;
+  grid-column: 1 / -1;
 }
 
-/* Custom Scrollbar - WIDER */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px; /* Increased from 6px */
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -791,73 +854,100 @@ h1 {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Responsive adjustments */
+/* Responsive adjustments for wide layout */
 @media (max-width: 1400px) {
-  .car-hud {
-    max-width: 95%;
-    min-height: 85vh;
+  .main-content {
+    height: 320px;
+  }
+  
+  .log-messages {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+  
+  .header-right {
+    gap: 10px;
   }
 }
 
-@media (max-width: 1100px) {
-  .car-hud {
-    padding: 25px;
-    min-height: 80vh;
-  }
-  
-  .dashboard-layout {
-    gap: 20px;
+@media (max-width: 1200px) {
+  .main-content {
+    height: 300px;
   }
   
   .gauge-value {
-    font-size: 3rem;
+    font-size: 2.6rem;
   }
   
   h1 {
-    font-size: 2.5rem;
+    font-size: 1.8rem;
+  }
+  
+  .header-center {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 1000px) {
+  .hud-header {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .header-center {
+    order: 3;
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
   }
 }
 
 @media (max-width: 900px) {
-  .dashboard-layout {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
-    gap: 20px;
+  .car-hud {
+    width: 98vw;
   }
   
-  .vehicle-model-placeholder {
+  .main-content {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    height: auto;
+    gap: 15px;
+  }
+  
+  .center-column {
     grid-column: span 2;
     grid-row: 2;
   }
   
-  .model-placeholder {
-    min-height: 180px;
+  .vehicle-model-placeholder {
+    height: 200px;
+  }
+  
+  .log-messages {
+    grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 700px) {
-  .car-hud {
-    padding: 20px;
-    min-height: auto;
+@media (max-width: 650px) {
+  .header-right {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
   
-  .gauge-value {
-    font-size: 2.5rem;
-  }
-  
-  h1 {
-    font-size: 2rem;
+  .connection-status, .user-info {
+    width: 100%;
   }
 }
 
 @media (max-width: 600px) {
-  .dashboard-layout {
+  .main-content {
     grid-template-columns: 1fr;
     grid-template-rows: repeat(3, auto);
-    gap: 15px;
   }
   
-  .vehicle-model-placeholder {
+  .center-column {
     grid-column: 1;
     grid-row: 2;
   }
@@ -865,15 +955,13 @@ h1 {
   .hud-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
   
-  .connection-status {
+  .datetime {
+    margin-top: 5px;
     width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .gauge-scale span {
-    font-size: 0.7rem;
+    text-align: center;
   }
 }
 </style>

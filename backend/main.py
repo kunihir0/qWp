@@ -134,83 +134,82 @@ async def stream_obd_data_to_client(websocket):
         logger.info(f"ENTER: stream_obd_data_to_client for {client_addr}")
     
         # Simulator state variables
-        current_rpm = 800.0
+        # OBD Polling Interval
+        OBD_POLLING_INTERVAL = 0.2  # seconds, configurable as per future considerations
+        # Initialize variables for storing OBD data, will persist across loop iterations
+        current_rpm = 0.0
         current_speed_mph = 0.0
-        simulation_phase = "idle"  # "idle", "accelerating", "cruising", "decelerating"
-        phase_timer = 0  # Counter for steps within a phase
-        SIMULATION_STEP_INTERVAL = 0.5  # Corresponds to await asyncio.sleep()
     
         try:
             while True:
                 logger.debug(
-                    f"SIM: stream_obd_data_to_client loop for {client_addr}. Simulating data. Phase: {simulation_phase}, Timer: {phase_timer}"
+                    f"OBD: stream_obd_data_to_client loop for {client_addr}. Querying OBD."
                 )
-    
-                # Simulation Logic
-                phase_timer += 1
-    
-                if simulation_phase == "idle":
-                    current_rpm = 800.0
+
+                data_status = "OK" # Default status for this cycle
+
+                if obd_connection and obd_connection.is_connected() and obd_connection.protocol_id():
+                    # Query RPM
+                    rpm_response = obd_connection.query(obd.commands.RPM)
+                    if not rpm_response.is_null() and rpm_response.value is not None:
+                        # Assuming rpm_response.value is a pint.Quantity
+                        current_rpm = round(rpm_response.value.magnitude, 2)
+                    else:
+                        # Keep last known current_rpm or its initial 0.0 value
+                        data_status = "RPM_ERROR"
+                        logger.warning(f"OBD: Failed to retrieve RPM or RPM is null for {client_addr}. Using last known/default value: {current_rpm}")
+
+                    # Query Speed
+                    speed_response = obd_connection.query(obd.commands.SPEED)
+                    current_speed_kmph = 0.0 # Initialize for current scope, will be basis for current_speed_mph
+                    if not speed_response.is_null() and speed_response.value is not None:
+                        # Assuming speed_response.value is a pint.Quantity in KMPH
+                        current_speed_kmph = speed_response.value.magnitude
+                    else:
+                        # Keep last known current_speed_mph (derived from kmph) or its initial 0.0 value
+                        # by not re-calculating it from a new (failed) kmph reading.
+                        # Update status accordingly.
+                        new_speed_status = "SPEED_ERROR"
+                        if data_status == "RPM_ERROR": # RPM already failed in this cycle
+                            data_status = "RPM_SPEED_ERROR"
+                        else: # RPM was OK or this is the first error in this cycle
+                            data_status = new_speed_status
+                        logger.warning(f"OBD: Failed to retrieve Speed or Speed is null for {client_addr}. Speed KMPH basis remains {current_speed_kmph}, MPH: {current_speed_mph}")
+                    
+                    # Convert KMPH to MPH only if speed was successfully queried or to re-affirm 0 if it failed
+                    conversion_factor_kmph_to_mph = 0.621371
+                    current_speed_mph = round(current_speed_kmph * conversion_factor_kmph_to_mph, 2)
+
+                else:
+                    logger.warning(
+                        f"OBD: Not connected or protocol not set for {client_addr}. Sending default error data."
+                    )
+                    # Reset to 0 to clearly indicate no live data when OBD is disconnected
+                    current_rpm = 0.0
                     current_speed_mph = 0.0
-                    # Idle for 10 seconds
-                    if phase_timer >= (10 / SIMULATION_STEP_INTERVAL):
-                        simulation_phase = "accelerating"
-                        phase_timer = 0
-                        logger.info(f"SIM: {client_addr} changing to ACCELERATING")
-    
-                elif simulation_phase == "accelerating":
-                    # Accelerate to 70 MPH in 20 seconds (40 steps)
-                    # Speed: 0 to 70 => +1.75 MPH/step
-                    # RPM: 800 to 3500 => +67.5 RPM/step
-                    current_speed_mph += 1.75
-                    current_rpm += 67.5
-                    if current_speed_mph >= 70.0:
-                        current_speed_mph = 70.0
-                        current_rpm = 3500.0
-                        simulation_phase = "cruising"
-                        phase_timer = 0
-                        logger.info(f"SIM: {client_addr} changing to CRUISING at 70 MPH")
-    
-                elif simulation_phase == "cruising":
-                    # Cruise at 70 MPH, RPM around 2800, for 30 seconds (60 steps)
-                    current_speed_mph = 70.0
-                    current_rpm = 2800.0
-                    if phase_timer >= (30 / SIMULATION_STEP_INTERVAL):
-                        simulation_phase = "decelerating"
-                        phase_timer = 0
-                        logger.info(f"SIM: {client_addr} changing to DECELERATING from 70 MPH")
-    
-                elif simulation_phase == "decelerating":
-                    # Decelerate from 70 MPH to 0 in 15 seconds (30 steps)
-                    # Speed: 70 to 0 => -2.333... MPH/step (70/30)
-                    # RPM: 2800 to 800 => -66.666... RPM/step (2000/30)
-                    current_speed_mph -= (70.0 / (15 / SIMULATION_STEP_INTERVAL))
-                    current_rpm -= ((2800.0 - 800.0) / (15 / SIMULATION_STEP_INTERVAL))
-                    if current_speed_mph <= 0:
-                        current_speed_mph = 0.0
-                        current_rpm = 800.0
-                        simulation_phase = "idle"
-                        phase_timer = 0
-                        logger.info(f"SIM: {client_addr} changing to IDLE")
-                
-                # Ensure values are within reasonable bounds and rounded
-                current_speed_mph = max(0.0, round(current_speed_mph, 2))
-                current_rpm = max(600.0, round(current_rpm, 2)) # Min idle RPM
-    
+                    data_status = "OBD_DISCONNECTED"
+                    # Add a longer sleep here to prevent busy-looping if OBD is down
+                    logger.debug(f"OBD: Connection issue for {client_addr}. Sleeping for 2s before next check in loop.")
+                    await asyncio.sleep(2.0) # Wait longer before retrying connection check in the next loop iteration
+
                 data_to_send = {
                     "rpm": current_rpm,
                     "rpm_unit": "rpm",
                     "speed": current_speed_mph,
                     "speed_unit": "MPH",
+                    "status": data_status
                 }
                 json_payload = json.dumps(data_to_send)
-                logger.debug(f"SIM: Sending to {client_addr}: {json_payload}")
+                logger.debug(f"OBD: Sending to {client_addr}: {json_payload}")
                 await websocket.send(json_payload)
                 
-                logger.debug(
-                    f"SIM: Sleeping for {SIMULATION_STEP_INTERVAL}s before next simulation step for {client_addr}"
-                )
-                await asyncio.sleep(SIMULATION_STEP_INTERVAL)
+                # If OBD was disconnected, we already slept for 2s.
+                # Otherwise, sleep for the normal polling interval.
+                if data_status != "OBD_DISCONNECTED":
+                    logger.debug(
+                        f"OBD: Sleeping for {OBD_POLLING_INTERVAL}s before next OBD query for {client_addr}"
+                    )
+                    await asyncio.sleep(OBD_POLLING_INTERVAL)
     
         except websockets.exceptions.ConnectionClosedOK:
             logger.info(f"Client {client_addr} disconnected normally (ConnectionClosedOK).")
