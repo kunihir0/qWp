@@ -1,4 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap');
 @import './base.css';
+
+:root {
+  /* Base Colors - Tesla-inspired minimalist theme */
+  --bg-dark: #121212;
+  --glass-bg: rgba(20, 20, 20, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  
+  /* Accent Colors (more subtle) */
+  --accent-primary: rgba(255, 255, 255, 0.85);
+  --accent-secondary: rgba(255, 255, 255, 0.7);
+  --accent-warning: rgba(245, 166, 35, 0.85);
+  --accent-danger: rgba(252, 84, 71, 0.85);
+  
+  /* Gauge Colors (more monochromatic) */
+  --rpm-gradient-start: rgba(255, 255, 255, 0.7);
+  --rpm-gradient-end: rgba(255, 255, 255, 0.9);
+  --speed-gradient-start: rgba(255, 255, 255, 0.7);
+  --speed-gradient-end: rgba(255, 255, 255, 0.9);
+  --throttle-gradient-start: rgba(255, 255, 255, 0.7);
+  --throttle-gradient-end: rgba(255, 255, 255, 0.9);
+  --engine-load-gradient-start: rgba(255, 255, 255, 0.7);
+  --engine-load-gradient-end: rgba(255, 255, 255, 0.9);
+  --temp-normal-gradient-start: rgba(255, 255, 255, 0.7);
+  --temp-normal-gradient-end: rgba(255, 255, 255, 0.9);
+  --temp-warning-gradient-start: rgba(245, 166, 35, 0.7);
+  --temp-warning-gradient-end: rgba(245, 166, 35, 0.9);
+  --temp-high-gradient-start: rgba(252, 84, 71, 0.7);
+  --temp-high-gradient-end: rgba(252, 84, 71, 0.9);
+  --fuel-normal-gradient-start: rgba(255, 255, 255, 0.7);
+  --fuel-normal-gradient-end: rgba(255, 255, 255, 0.9);
+  --fuel-low-gradient-start: rgba(252, 84, 71, 0.7);
+  --fuel-low-gradient-end: rgba(252, 84, 71, 0.9);
+  
+  /* Status Colors (kept for status indicators) */
+  --status-connected: rgba(57, 213, 152, 0.85);
+  --status-connecting: rgba(245, 166, 35, 0.85);
+  --status-error: rgba(252, 84, 71, 0.85);
+  --status-disconnected: rgba(150, 150, 150, 0.6);
+  
+  /* UI Elements */
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 14px;
+  --blur-strength: 5px; /* Reduced blur for minimalist Tesla look */
+  
+  /* Spacing */
+  --spacing-sm: 10px;
+  --spacing-md: 20px;
+  --spacing-lg: 30px;
+}
 
 #app {
   max-width: 1280px;
