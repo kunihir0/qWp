@@ -7085,3 +7085,195 @@
 2025-05-12 02:37:33,363  root       read_from_device WARNING  Session terminated by the client.
 2025-05-12 02:37:33,369  root       reset           DEBUG    Resetting counters and sleeping for 0 seconds
 2025-05-12 02:37:33,369  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:26:50,869  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:26:50,874  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:26:56,911  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:26:56,915  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:36:15,338  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:36:15,342  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:36:33,745  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:36:33,749  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:36:56,527  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:36:56,531  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:39:46,426  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:39:46,430  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:40:11,960  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:40:11,964  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:40:44,808  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:40:44,811  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:41:56,174  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:41:56,178  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:42:25,041  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:42:25,045  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:52:23,293  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:52:23,297  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:52:41,163  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:52:41,167  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:55:02,011  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:55:02,015  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:56:19,914  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:56:19,918  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:57:37,375  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:57:37,379  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 19:57:52,466  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 19:57:52,470  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:02:17,564  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 20:02:17,567  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:13:03,179  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 20:13:03,182  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:15:46,503  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 20:15:46,506  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:16:08,976  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 20:16:08,979  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:38:37,174  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 20:38:37,179  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 20:43:58,090  root       terminate       DEBUG    Start termination procedure.
+2025-05-12 20:43:59,190  root       terminate       DEBUG    Terminated.
+2025-05-12 21:32:04,732  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 21:32:04,737  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 21:45:18,301  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 21:45:18,305  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 22:02:47,069  root       run             INFO     
+
+ELM327 OBD-II adapter emulator v3.0.4 started at TCP/IP network port 35000.
+
+2025-05-12 22:02:47,073  root       accept_connection DEBUG    Waiting for connection at TCP/IP network port 35000.
+2025-05-12 22:02:49,604  root       accept_connection DEBUG    Connected by ('127.0.0.1', 54894)
+2025-05-12 22:02:49,605  root       run             DEBUG    Received 'ATZ'
+2025-05-12 22:02:49,605  root       handle_request  DEBUG    Handling: 'ATZ', header '7E0', ECU '7E0'
+2025-05-12 22:02:49,605  root       handle_request  DEBUG    Instantiating ECU task "Default ECU Task module" for ECU "7E0"
+2025-05-12 22:02:49,608  root       handle_request  DEBUG    Description: AT RESET, PID AT_RESET (ATZ)
+2025-05-12 22:02:49,608  root       reset           DEBUG    Resetting counters and sleeping for 0.5 seconds
+2025-05-12 22:02:50,109  root       <module>        DEBUG    Reset and sleep 0.5 seconds
+2025-05-12 22:02:50,109  root       handle_response DEBUG    Processing: '<writeln>\r\rELM327 v1.5</writeln>'
+2025-05-12 22:02:50,109  root       handle_response DEBUG    Write: '\r\rELM327 v1.5\r\r>'
+2025-05-12 22:02:50,605  root       run             DEBUG    Received 'ATE0'
+2025-05-12 22:02:50,605  root       handle_request  DEBUG    Handling: 'ATE0', header '7E0', ECU '7E0'
+2025-05-12 22:02:50,605  root       handle_request  DEBUG    Description: AT ECHO, PID AT_ECHO (ATE0)
+2025-05-12 22:02:50,605  root       <module>        DEBUG    set ECHO ON/OFF : False
+2025-05-12 22:02:50,605  root       handle_response DEBUG    Processing: '<writeln>OK</writeln>'
+2025-05-12 22:02:50,606  root       handle_response DEBUG    Write: 'OK\r\r>'
+2025-05-12 22:02:50,606  root       run             DEBUG    Received 'ATH1'
+2025-05-12 22:02:50,606  root       handle_request  DEBUG    Handling: 'ATH1', header '7E0', ECU '7E0'
+2025-05-12 22:02:50,606  root       handle_request  DEBUG    Description: AT HEADERS, PID AT_USE_HEADERS (ATH1)
+2025-05-12 22:02:50,606  root       <module>        DEBUG    set HEADERS ON/OFF : True
+2025-05-12 22:02:50,606  root       handle_response DEBUG    Processing: '<writeln>OK</writeln>'
+2025-05-12 22:02:50,606  root       handle_response DEBUG    Write: 'OK\r\r>'
+2025-05-12 22:02:50,606  root       run             DEBUG    Received 'ATL0'
+2025-05-12 22:02:50,606  root       handle_request  DEBUG    Handling: 'ATL0', header '7E0', ECU '7E0'
+2025-05-12 22:02:50,606  root       handle_request  DEBUG    Description: AT LINEFEEDS, PID AT_LINEFEEDS (ATL0)
+2025-05-12 22:02:50,607  root       <module>        DEBUG    set LINEFEEDS ON/OFF : False
+2025-05-12 22:02:50,607  root       handle_response DEBUG    Processing: '<writeln>OK</writeln>'
+2025-05-12 22:02:50,607  root       handle_response DEBUG    Write: 'OK\r\r>'
+2025-05-12 22:02:50,607  root       run             DEBUG    Received 'ATSP0'
+2025-05-12 22:02:50,607  root       handle_request  DEBUG    Handling: 'ATSP0', header '7E0', ECU '7E0'
+2025-05-12 22:02:50,607  root       handle_request  DEBUG    Description: AT PROTO, PID AT_PROTO (ATSP0)
+2025-05-12 22:02:50,607  root       <module>        DEBUG    set PROTO 0
+2025-05-12 22:02:50,607  root       handle_response DEBUG    Processing: '<writeln>OK</writeln>'
+2025-05-12 22:02:50,608  root       handle_response DEBUG    Write: 'OK\r\r>'
+2025-05-12 22:02:51,607  root       run             DEBUG    Received '0100'
+2025-05-12 22:02:51,607  root       handle_request  DEBUG    Handling: '0100', header '7E0', ECU '7E0'
+2025-05-12 22:02:51,607  root       handle_request  DEBUG    Description: PIDS_A, PID ELM_PIDS_A (0100)
+2025-05-12 22:02:51,608  root       handle_response DEBUG    Processing: '<string>SEARCHING...</string><exec>time.sleep(3)</exec><writeln></writeln><header>7EA</header><size>06</size><data>41 00 98 3A 80 13</data><pos_answer>BE 3F A8 13</pos_answer>'
+2025-05-12 22:02:51,608  root       handle_response DEBUG    Write: 'SEARCHING...'
+2025-05-12 22:02:54,608  root       handle_response DEBUG    Evaluated command: time.sleep(3) -> None
+2025-05-12 22:02:54,608  root       handle_response DEBUG    Write: '\r7EA 06 41 00 98 3A 80 13 \r7E8 06 41 00 BE 3F A8 13 \r\r>'
+2025-05-12 22:02:54,609  root       run             DEBUG    Received 'ATDPN'
+2025-05-12 22:02:54,609  root       handle_request  DEBUG    Handling: 'ATDPN', header '7E0', ECU '7E0'
+2025-05-12 22:02:54,609  root       handle_request  DEBUG    Description: AT Display Protocol Number, PID AT_DESCRIBE_PROTO_N (ATDPN)
+2025-05-12 22:02:55,109  root       handle_response DEBUG    Processing: '<writeln>A6</writeln>'
+2025-05-12 22:02:55,109  root       handle_response DEBUG    Write: 'A6\r\r>'
+2025-05-12 22:02:55,110  root       run             DEBUG    Received '0100'
+2025-05-12 22:02:55,110  root       handle_request  DEBUG    Handling: '0100', header '7E0', ECU '7E0'
+2025-05-12 22:02:55,110  root       handle_request  DEBUG    Description: PIDS_A, PID ELM_PIDS_A (0100)
+2025-05-12 22:02:55,110  root       handle_response DEBUG    Processing: '<header>7EA</header><size>06</size><data>41 00 98 3A 80 13</data><pos_answer>BE 3F A8 13</pos_answer>'
+2025-05-12 22:02:55,110  root       handle_response DEBUG    Write: '7EA 06 41 00 98 3A 80 13 \r7E8 06 41 00 BE 3F A8 13 \r\r>'
+2025-05-12 22:02:55,111  root       run             DEBUG    Received '0120'
+2025-05-12 22:02:55,111  root       handle_request  DEBUG    Handling: '0120', header '7E0', ECU '7E0'
+2025-05-12 22:02:55,111  root       handle_request  DEBUG    Description: PIDS_B, PID ELM_PIDS_B (0120)
+2025-05-12 22:02:55,111  root       handle_response DEBUG    Processing: '<header>7EA</header><size>06</size><data>41 20 80 01 A0 01</data><pos_answer>90 15 B0 15</pos_answer>'
+2025-05-12 22:02:55,111  root       handle_response DEBUG    Write: '7EA 06 41 20 80 01 A0 01 \r7E8 06 41 20 90 15 B0 15 \r\r>'
+2025-05-12 22:02:55,112  root       run             DEBUG    Received '0140'
+2025-05-12 22:02:55,112  root       handle_request  DEBUG    Handling: '0140', header '7E0', ECU '7E0'
+2025-05-12 22:02:55,112  root       handle_request  DEBUG    Description: PIDS_C, PID ELM_PIDS_C (0140)
+2025-05-12 22:02:55,112  root       handle_response DEBUG    Processing: '<header>7EA</header><size>06</size><data>41 40 44 CC 00 21</data><pos_answer>7A 1C 80 00</pos_answer>'
+2025-05-12 22:02:55,112  root       handle_response DEBUG    Write: '7EA 06 41 40 44 CC 00 21 \r7E8 06 41 40 7A 1C 80 00 \r\r>'
+2025-05-12 22:02:55,112  root       run             DEBUG    Received '0600'
+2025-05-12 22:02:55,112  root       handle_request  DEBUG    Handling: '0600', header '7E0', ECU '7E0'
+2025-05-12 22:02:55,112  root       handle_request  DEBUG    Description: MIDS_A, PID ELM_MIDS_A (0600)
+2025-05-12 22:02:55,112  root       handle_response DEBUG    Processing: '<pos_answer>C0 00 00 01</pos_answer>'
+2025-05-12 22:02:55,113  root       handle_response DEBUG    Write: '7E8 05 46 C0 00 00 01 \r\r>'
+2025-05-12 22:02:55,113  root       run             DEBUG    Received '0900'
+2025-05-12 22:02:55,113  root       handle_request  DEBUG    Handling: '0900', header '7E0', ECU '7E0'
+2025-05-12 22:02:55,113  root       handle_request  DEBUG    Description: Supported PIDs [01-20], PID ELM_PIDS_9A (0900)
+2025-05-12 22:02:55,113  root       handle_response DEBUG    Processing: '<header>7E8</header><size>06</size><data>49 00 55 40 00 00</data>'
+2025-05-12 22:02:55,113  root       handle_response DEBUG    Write: '7E8 06 49 00 55 40 00 00 \r\r>'

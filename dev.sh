@@ -116,11 +116,21 @@ setup_tmux_session() {
   log "Setting up tmux session '${SESSION_NAME}' (Direct TCP - 3 Panes)..."
   tmux kill-session -t $SESSION_NAME 2>/dev/null || true
   
-  # Create new detached session, name the first window, and get the ID of the first pane (Pane 0)
-  tmux new-session -d -s $SESSION_NAME -c "${PROJECT_DIR}" -n "HUD_Direct" -P -F "#{pane_id}"
-  local PANE0_ID=$(tmux display-message -p -t $SESSION_NAME:HUD_Direct.0 '#{pane_id}')
+  # Create new detached session with a terminal type that doesn't require size
+  # NOTE: Removed -x and -y parameters that might cause "size missing" errors
+  TERM=dumb tmux new-session -d -s $SESSION_NAME -c "${PROJECT_DIR}" -n "HUD_Direct"
   
-  tmux set-option -g -t $SESSION_NAME status-right "QWP Direct TCP | %H:%M %d-%b-%y" 
+  # If we still have issues, try to adjust the session after creation
+  if [ $? -ne 0 ]; then
+    warn "Initial tmux session creation failed, trying alternative method..."
+    TERM=dumb tmux new-session -d -s $SESSION_NAME
+    tmux set-option -t $SESSION_NAME default-path "${PROJECT_DIR}" 2>/dev/null || true
+    tmux rename-window -t "${SESSION_NAME}:0" "HUD_Direct"
+  fi
+  
+  sleep 0.5 # Give tmux a moment
+  
+  tmux set-option -g -t $SESSION_NAME status-right "QWP Direct TCP | %H:%M %d-%b-%y"
   tmux set-option -g -t $SESSION_NAME status-style "bg=blue,fg=white" # Different color for this setup
 
   local tmux_venv_activate_cmd="source \"${VENV_PATH}/bin/activate\""
@@ -129,32 +139,31 @@ setup_tmux_session() {
       tmux_venv_activate_cmd="echo 'Warning: venv activate script for pane not found at ${VENV_PATH}/bin/activate.'"
   fi
   
-  # Pane 0 (Left - 50% width): Car Emulator (TCP)
-  tmux send-keys -t "${PANE0_ID}" "${tmux_venv_activate_cmd}" C-m; sleep 0.3
-  tmux send-keys -t "${PANE0_ID}" "echo '>>> PANE 0 (Left): Starting Car Emulator (TCP) on port ${TCP_PORT}...'" C-m; sleep 0.3
-  tmux send-keys -t "${PANE0_ID}" "echo 'You can type: loglevel debug'" C-m; sleep 0.3
-  tmux send-keys -t "${PANE0_ID}" "\"${ELM_CMD}\" -s car -n ${TCP_PORT} || { echo 'PANE 0 ERROR: Car emulator failed to start!'; }" C-m
+  # Pane 0 (Left - 50% width): Car Emulator (TCP) - Target: session:window.pane_index
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.0" "${tmux_venv_activate_cmd}" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.0" "echo '>>> PANE 0 (Left): Starting Car Emulator (TCP) on port ${TCP_PORT}...'" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.0" "echo 'You can type: loglevel debug'" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.0" "\"${ELM_CMD}\" -s car -n ${TCP_PORT} || { echo 'PANE 0 ERROR: Car emulator failed to start!'; }" C-m
 
   # Split Pane 0 horizontally to create Pane 1 (Right side, will be split further)
-  tmux split-window -h -p 66 -t "${PANE0_ID}" -c "${PROJECT_DIR}" -P -F "#{pane_id}" 
-  local PANE1_ID=$(tmux display-message -p -t $SESSION_NAME:HUD_Direct.#{window_last_pane} '#{pane_id}') 
-  sleep 0.3
+  tmux split-window -h -p 66 -t "${SESSION_NAME}:HUD_Direct.0" -c "${PROJECT_DIR}"
+  sleep 0.5 # Give tmux a moment
   
-  # Pane 1 (Right-Top): Python Backend
-  tmux send-keys -t "${PANE1_ID}" "${tmux_venv_activate_cmd}" C-m; sleep 0.3
-  tmux send-keys -t "${PANE1_ID}" "echo '>>> PANE 1 (Right-Top): Starting Python Backend (Direct TCP to port ${TCP_PORT})...'" C-m; sleep 0.3
-  tmux send-keys -t "${PANE1_ID}" "echo 'Ensure backend/main.py is configured for direct TCP (socket://localhost:${TCP_PORT})'" C-m; sleep 0.3
-  tmux send-keys -t "${PANE1_ID}" "${PYTHON_EXEC_CMD} || { echo 'PANE 1 ERROR: Python backend failed to start!'; }" C-m
+  # Pane 1 (Right-Top): Python Backend - Target: session:window.pane_index
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.1" "${tmux_venv_activate_cmd}" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.1" "echo '>>> PANE 1 (Right-Top): Starting Python Backend (Direct TCP to port ${TCP_PORT})...'" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.1" "echo 'Ensure backend/main.py is configured for direct TCP (socket://localhost:${TCP_PORT})'" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.1" "${PYTHON_EXEC_CMD} || { echo 'PANE 1 ERROR: Python backend failed to start!'; }" C-m
   
   # Split Pane 1 vertically to create Pane 2 (Right-Bottom): Frontend
-  tmux select-pane -t "${PANE1_ID}"; sleep 0.3 
-  tmux split-window -v -p 50 -t "${PANE1_ID}" -c "${FRONTEND_DIR}" -P -F "#{pane_id}"
-  local PANE2_ID=$(tmux display-message -p -t $SESSION_NAME:HUD_Direct.#{window_last_pane} '#{pane_id}')
-  sleep 0.3
-  tmux send-keys -t "${PANE2_ID}" "echo '>>> PANE 2 (Right-Bottom): Starting Vue Frontend Dev Server...'" C-m; sleep 0.3
-  tmux send-keys -t "${PANE2_ID}" "npm run dev || { echo 'PANE 2 ERROR: Frontend dev server failed to start!'; }" C-m
+  tmux select-pane -t "${SESSION_NAME}:HUD_Direct.1"; sleep 0.3
+  tmux split-window -v -p 50 -t "${SESSION_NAME}:HUD_Direct.1" -c "${FRONTEND_DIR}"
+  sleep 0.5 # Give tmux a moment
+  
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.2" "echo '>>> PANE 2 (Right-Bottom): Starting Vue Frontend Dev Server...'" C-m; sleep 0.3
+  tmux send-keys -t "${SESSION_NAME}:HUD_Direct.2" "npm run dev || { echo 'PANE 2 ERROR: Frontend dev server failed to start!'; }" C-m
 
-  tmux select-pane -t "${PANE1_ID}" # Default active pane (Python Backend)
+  tmux select-pane -t "${SESSION_NAME}:HUD_Direct.1" # Default active pane (Python Backend - Pane 1)
 }
 
 # ==== MAIN EXECUTION ====
