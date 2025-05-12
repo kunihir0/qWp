@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import socket  # For creating a raw TCP socket
+from pint import Quantity
 
 # Configure Exhaustive Logging (as before)
 logging.basicConfig(
@@ -162,13 +163,25 @@ async def stream_obd_data_to_client(websocket):
                     logger.debug(
                         f"SPEED response for {client_addr}: Value={speed_response.value}, Unit={speed_response.unit}, IsNull={speed_response.is_null()}"
                     )
+                    rpm_value_to_send = None
+                    if rpm_response and not rpm_response.is_null():
+                        raw_rpm_val = rpm_response.value
+                        if isinstance(raw_rpm_val, Quantity):
+                            rpm_value_to_send = raw_rpm_val.magnitude
+                        else:
+                            rpm_value_to_send = raw_rpm_val
+                    
+                    speed_value_to_send = None
+                    if speed_response and not speed_response.is_null():
+                        raw_speed_val = speed_response.value
+                        if isinstance(raw_speed_val, Quantity):
+                            speed_value_to_send = raw_speed_val.magnitude
+                        else:
+                            speed_value_to_send = raw_speed_val
+
                     data_to_send = {
-                        "rpm": rpm_response.value
-                        if rpm_response and not rpm_response.is_null()
-                        else None,
-                        "speed": speed_response.value
-                        if speed_response and not speed_response.is_null()
-                        else None,
+                        "rpm": rpm_value_to_send,
+                        "speed": speed_value_to_send,
                         "rpm_unit": str(rpm_response.unit)
                         if rpm_response and rpm_response.unit
                         else None,
@@ -184,7 +197,7 @@ async def stream_obd_data_to_client(websocket):
                         f"Error querying OBD or processing data for {client_addr}: {e}",
                         exc_info=True,
                     )
-                    if not websocket.closed:
+                    if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
                         error_payload = json.dumps(
                             {
                                 "error": "OBD query error",
@@ -209,7 +222,7 @@ async def stream_obd_data_to_client(websocket):
                 logger.warning(
                     f"OBD connected for {client_addr} but no protocol set. Sending status to client."
                 )
-                if not websocket.closed:
+                if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
                     await websocket.send(
                         json.dumps(
                             {
@@ -224,7 +237,7 @@ async def stream_obd_data_to_client(websocket):
                 logger.warning(
                     f"OBD not connected for {client_addr}. Sending status to client."
                 )
-                if not websocket.closed:
+                if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
                     await websocket.send(
                         json.dumps(
                             {"error": "OBD not connected", "rpm": None, "speed": None}
@@ -244,7 +257,7 @@ async def stream_obd_data_to_client(websocket):
             f"Unhandled error in stream_obd_data_to_client for {client_addr}: {e}",
             exc_info=True,
         )
-        if not websocket.closed:
+        if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
             try:
                 await websocket.send(
                     json.dumps({"error": "Backend streaming error", "details": str(e)})
