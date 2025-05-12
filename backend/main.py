@@ -130,148 +130,116 @@ def initialize_obd_connection(host, port):
 async def stream_obd_data_to_client(websocket):
     # ... (Keep the existing stream_obd_data_to_client function as it was in the previous exhaustive logging version) ...
     # ... (Ensure it checks `obd_connection and obd_connection.is_connected() and obd_connection.protocol_id()`) ...
-    global obd_connection
-    client_addr = websocket.remote_address
-    logger.info(f"ENTER: stream_obd_data_to_client for {client_addr}")
-    try:
-        while True:
-            logger.debug(
-                f"stream_obd_data_to_client loop for {client_addr}. Checking OBD connection."
+        client_addr = websocket.remote_address
+        logger.info(f"ENTER: stream_obd_data_to_client for {client_addr}")
+    
+        # Simulator state variables
+        current_rpm = 800.0
+        current_speed_mph = 0.0
+        simulation_phase = "idle"  # "idle", "accelerating", "cruising", "decelerating"
+        phase_timer = 0  # Counter for steps within a phase
+        SIMULATION_STEP_INTERVAL = 0.5  # Corresponds to await asyncio.sleep()
+    
+        try:
+            while True:
+                logger.debug(
+                    f"SIM: stream_obd_data_to_client loop for {client_addr}. Simulating data. Phase: {simulation_phase}, Timer: {phase_timer}"
+                )
+    
+                # Simulation Logic
+                phase_timer += 1
+    
+                if simulation_phase == "idle":
+                    current_rpm = 800.0
+                    current_speed_mph = 0.0
+                    # Idle for 10 seconds
+                    if phase_timer >= (10 / SIMULATION_STEP_INTERVAL):
+                        simulation_phase = "accelerating"
+                        phase_timer = 0
+                        logger.info(f"SIM: {client_addr} changing to ACCELERATING")
+    
+                elif simulation_phase == "accelerating":
+                    # Accelerate to 70 MPH in 20 seconds (40 steps)
+                    # Speed: 0 to 70 => +1.75 MPH/step
+                    # RPM: 800 to 3500 => +67.5 RPM/step
+                    current_speed_mph += 1.75
+                    current_rpm += 67.5
+                    if current_speed_mph >= 70.0:
+                        current_speed_mph = 70.0
+                        current_rpm = 3500.0
+                        simulation_phase = "cruising"
+                        phase_timer = 0
+                        logger.info(f"SIM: {client_addr} changing to CRUISING at 70 MPH")
+    
+                elif simulation_phase == "cruising":
+                    # Cruise at 70 MPH, RPM around 2800, for 30 seconds (60 steps)
+                    current_speed_mph = 70.0
+                    current_rpm = 2800.0
+                    if phase_timer >= (30 / SIMULATION_STEP_INTERVAL):
+                        simulation_phase = "decelerating"
+                        phase_timer = 0
+                        logger.info(f"SIM: {client_addr} changing to DECELERATING from 70 MPH")
+    
+                elif simulation_phase == "decelerating":
+                    # Decelerate from 70 MPH to 0 in 15 seconds (30 steps)
+                    # Speed: 70 to 0 => -2.333... MPH/step (70/30)
+                    # RPM: 2800 to 800 => -66.666... RPM/step (2000/30)
+                    current_speed_mph -= (70.0 / (15 / SIMULATION_STEP_INTERVAL))
+                    current_rpm -= ((2800.0 - 800.0) / (15 / SIMULATION_STEP_INTERVAL))
+                    if current_speed_mph <= 0:
+                        current_speed_mph = 0.0
+                        current_rpm = 800.0
+                        simulation_phase = "idle"
+                        phase_timer = 0
+                        logger.info(f"SIM: {client_addr} changing to IDLE")
+                
+                # Ensure values are within reasonable bounds and rounded
+                current_speed_mph = max(0.0, round(current_speed_mph, 2))
+                current_rpm = max(600.0, round(current_rpm, 2)) # Min idle RPM
+    
+                data_to_send = {
+                    "rpm": current_rpm,
+                    "rpm_unit": "rpm",
+                    "speed": current_speed_mph,
+                    "speed_unit": "MPH",
+                }
+                json_payload = json.dumps(data_to_send)
+                logger.debug(f"SIM: Sending to {client_addr}: {json_payload}")
+                await websocket.send(json_payload)
+                
+                logger.debug(
+                    f"SIM: Sleeping for {SIMULATION_STEP_INTERVAL}s before next simulation step for {client_addr}"
+                )
+                await asyncio.sleep(SIMULATION_STEP_INTERVAL)
+    
+        except websockets.exceptions.ConnectionClosedOK:
+            logger.info(f"Client {client_addr} disconnected normally (ConnectionClosedOK).")
+        except websockets.exceptions.ConnectionClosedError as e:
+            logger.warning(f"Client {client_addr} connection closed with error: {e}")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"Client {client_addr} connection closed: {e}")
+        except asyncio.CancelledError:
+            logger.info(f"Streaming task for {client_addr} was cancelled.")
+        except Exception as e:
+            logger.error(
+                f"Unhandled error in stream_obd_data_to_client for {client_addr}: {e}",
+                exc_info=True,
             )
-            if (
-                obd_connection
-                and obd_connection.is_connected()
-                and obd_connection.protocol_id()
-            ):  # Added check for protocol_id
-                logger.debug(
-                    f"OBD connected and protocol set ({obd_connection.protocol_name()}). Querying data for {client_addr}."
-                )
+            if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
                 try:
-                    rpm_cmd = obd.commands.RPM
-                    speed_cmd = obd.commands.SPEED
-                    logger.debug(f"Querying RPM for {client_addr}...")
-                    rpm_response = await asyncio.to_thread(
-                        obd_connection.query, rpm_cmd
+                    await websocket.send(
+                        json.dumps({"error": "Backend streaming error", "details": str(e)})
                     )
+                except websockets.exceptions.ConnectionClosed:
                     logger.debug(
-                        f"RPM response for {client_addr}: Value={rpm_response.value}, Unit={rpm_response.unit}, IsNull={rpm_response.is_null()}"
+                        f"Client {client_addr} disconnected while trying to send final streaming error."
                     )
-                    logger.debug(f"Querying SPEED for {client_addr}...")
-                    speed_response = await asyncio.to_thread(
-                        obd_connection.query, speed_cmd
-                    )
-                    logger.debug(
-                        f"SPEED response for {client_addr}: Value={speed_response.value}, Unit={speed_response.unit}, IsNull={speed_response.is_null()}"
-                    )
-                    rpm_value_to_send = None
-                    if rpm_response and not rpm_response.is_null():
-                        raw_rpm_val = rpm_response.value
-                        if isinstance(raw_rpm_val, Quantity):
-                            rpm_value_to_send = raw_rpm_val.magnitude
-                        else:
-                            rpm_value_to_send = raw_rpm_val
-                    
-                    speed_value_to_send = None
-                    if speed_response and not speed_response.is_null():
-                        raw_speed_val = speed_response.value
-                        if isinstance(raw_speed_val, Quantity):
-                            speed_value_to_send = raw_speed_val.magnitude
-                        else:
-                            speed_value_to_send = raw_speed_val
-
-                    data_to_send = {
-                        "rpm": rpm_value_to_send,
-                        "speed": speed_value_to_send,
-                        "rpm_unit": str(rpm_response.unit)
-                        if rpm_response and rpm_response.unit
-                        else None,
-                        "speed_unit": str(speed_response.unit)
-                        if speed_response and speed_response.unit
-                        else None,
-                    }
-                    json_payload = json.dumps(data_to_send)
-                    logger.debug(f"Sending to {client_addr}: {json_payload}")
-                    await websocket.send(json_payload)
-                except Exception as e:
+                except Exception as e_send:
                     logger.error(
-                        f"Error querying OBD or processing data for {client_addr}: {e}",
-                        exc_info=True,
+                        f"Further error sending final streaming error to {client_addr}: {e_send}"
                     )
-                    if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
-                        error_payload = json.dumps(
-                            {
-                                "error": "OBD query error",
-                                "details": str(e),
-                                "rpm": None,
-                                "speed": None,
-                            }
-                        )
-                        logger.debug(
-                            f"Sending OBD query error to {client_addr}: {error_payload}"
-                        )
-                        await websocket.send(error_payload)
-                logger.debug(
-                    f"Sleeping for 0.5s before next OBD query for {client_addr}"
-                )
-                await asyncio.sleep(0.5)
-            elif (
-                obd_connection
-                and obd_connection.is_connected()
-                and not obd_connection.protocol_id()
-            ):
-                logger.warning(
-                    f"OBD connected for {client_addr} but no protocol set. Sending status to client."
-                )
-                if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "error": "OBD connected, but no protocol set",
-                                "rpm": None,
-                                "speed": None,
-                            }
-                        )
-                    )
-                await asyncio.sleep(2)
-            else:
-                logger.warning(
-                    f"OBD not connected for {client_addr}. Sending status to client."
-                )
-                if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
-                    await websocket.send(
-                        json.dumps(
-                            {"error": "OBD not connected", "rpm": None, "speed": None}
-                        )
-                    )
-                await asyncio.sleep(2)
-    except websockets.exceptions.ConnectionClosedOK:
-        logger.info(f"Client {client_addr} disconnected normally (ConnectionClosedOK).")
-    except websockets.exceptions.ConnectionClosedError as e:
-        logger.warning(f"Client {client_addr} connection closed with error: {e}")
-    except websockets.exceptions.ConnectionClosed as e:
-        logger.warning(f"Client {client_addr} connection closed: {e}")
-    except asyncio.CancelledError:
-        logger.info(f"Streaming task for {client_addr} was cancelled.")
-    except Exception as e:
-        logger.error(
-            f"Unhandled error in stream_obd_data_to_client for {client_addr}: {e}",
-            exc_info=True,
-        )
-        if websocket.state != 3: # 3 typically means ConnectionState.CLOSED
-            try:
-                await websocket.send(
-                    json.dumps({"error": "Backend streaming error", "details": str(e)})
-                )
-            except websockets.exceptions.ConnectionClosed:
-                logger.debug(
-                    f"Client {client_addr} disconnected while trying to send final streaming error."
-                )
-            except Exception as e_send:
-                logger.error(
-                    f"Further error sending final streaming error to {client_addr}: {e_send}"
-                )
-    finally:
-        logger.info(f"EXIT: stream_obd_data_to_client for {client_addr}")
+        finally:
+            logger.info(f"EXIT: stream_obd_data_to_client for {client_addr}")
 
 
 # --- WebSocket Connection Handler (remains the same) ---
