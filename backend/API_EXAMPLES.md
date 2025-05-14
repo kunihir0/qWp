@@ -6,7 +6,7 @@ This document provides examples of how to connect to and use the HUD Backend Web
 
 ```javascript
 // Connect to the WebSocket server
-const socket = new WebSocket('ws://localhost:8765');
+let socket = new WebSocket('ws://localhost:8765');
 
 // Handle connection open
 socket.addEventListener('open', (event) => {
@@ -20,6 +20,9 @@ socket.addEventListener('message', (event) => {
     // Check status
     if (data.status !== 'OK') {
         console.warn(`OBD Status: ${data.status}`);
+        if (data.error_details) {
+            console.warn(`Details: ${data.error_details}`);
+        }
         // Handle error states
         return;
     }
@@ -104,6 +107,8 @@ async def connect_to_hud():
                         # Check status
                         if data.get('status') != 'OK':
                             print(f"OBD Status: {data.get('status')}")
+                            if data.get('error_details'):
+                                print(f"Details: {data.get('error_details')}")
                             # Handle error states
                             continue
                         
@@ -170,6 +175,9 @@ function connectToHUD() {
             // Check connection status
             if (vehicleData.status !== 'OK') {
                 console.log(`OBD Status: ${vehicleData.status}`);
+                if (vehicleData.error_details) {
+                    console.log(`Details: ${vehicleData.error_details}`);
+                }
                 return;
             }
             
@@ -283,6 +291,9 @@ public class HUDBackendClient {
                         String status = data.optString("status");
                         if (!"OK".equals(status)) {
                             System.out.println("OBD Status: " + status);
+                            if (data.has("error_details") && !data.isNull("error_details")) {
+                                System.out.println("Details: " + data.getString("error_details"));
+                            }
                             return;
                         }
                         
@@ -480,6 +491,10 @@ class HUDBackendClient
                 if (status != "OK")
                 {
                     Console.WriteLine($"OBD Status: {status}");
+                    if (root.TryGetProperty("error_details", out JsonElement errorDetails) && errorDetails.ValueKind != JsonValueKind.Null)
+                    {
+                        Console.WriteLine($"Details: {errorDetails.GetString()}");
+                    }
                     return;
                 }
                 
@@ -611,6 +626,7 @@ function Dashboard() {
         mil_on: false,
         dtcs: [],
         status: null,
+        error_details: null,
         vehicle_make: null,
         vehicle_year: null,
         vehicle_country: null
@@ -677,6 +693,9 @@ function Dashboard() {
                 {error && <div className="error-message">{error}</div>}
                 {vehicleData.status && vehicleData.status !== 'OK' && (
                     <div className="status-message">OBD Status: {vehicleData.status}</div>
+                )}
+                {vehicleData.status && vehicleData.status !== 'OK' && vehicleData.error_details && (
+                    <div className="status-message error-details">Details: {vehicleData.error_details}</div>
                 )}
             </header>
             

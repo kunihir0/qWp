@@ -185,49 +185,97 @@ def decode_vin(vin):
         "raw_vin": vin
     }
 
-def _process_value(responses, command_name, data_dict, data_key):
+def _process_individual_obd_response(response, original_cmd_name_str):
     """
-    Helper method to process OBD response values consistently
-    
-    Args:
-        responses: Dictionary of responses from OBD queries
-        command_name: Name of the command in the responses dictionary
-        data_dict: Dictionary to store the processed value
-        data_key: Key in data_dict where the value should be stored
-    """
-    if command_name in responses and not responses[command_name].is_null():
-        # Get the value, handling pint quantities if present
-        value = responses[command_name].value
-        if hasattr(value, 'magnitude'):
-            # Round numeric values to 2 decimal places for cleaner display
-            data_dict[data_key] = round(value.magnitude, 2)
-        else:
-            data_dict[data_key] = value
-            
-        # Store unit if available
-        unit_key = f"{data_key}_unit"
-        if unit_key in data_dict and responses[command_name].unit:
-            data_dict[unit_key] = str(responses[command_name].unit)
+    Process an individual OBD response, handling type conversions, units, and special cases.
 
-async def query_obd_command(cmd, client_addr=None):
-    """
-    Query a single OBD command asynchronously
-    
     Args:
-        cmd: The OBD command to query
-        client_addr: Optional client address for logging
-        
+        response: The obd.OBDResponse object.
+        original_cmd_name_str: The string name of the command (e.g., "RPM", "SPEED").
+
     Returns:
-        The response from the OBD query
+        A tuple (processed_value, unit_str).
+        Returns (None, None) if the response is null or processing fails.
+    """
+    if response.is_null():
+        logger.debug(f"Command {original_cmd_name_str} response is null.")
+        return None, None
+
+    val = response.value
+    unit = str(response.unit) if response.unit else None
+
+    # Handle pint quantities
+    if hasattr(val, 'magnitude'):
+        processed_val = round(val.magnitude, 2)
+        # Use pint's unit if available, otherwise the response's unit
+        unit = str(val.units) if hasattr(val, 'units') else unit
+    else:
+        processed_val = val
+
+    # Special handling based on command name
+    if original_cmd_name_str == "SPEED":
+        if isinstance(processed_val, (int, float)):  # Assuming original is km/h
+            processed_val = round(processed_val * 0.621371, 2)
+            unit = "mph"
+    elif original_cmd_name_str in ["FUEL_TYPE", "VIN", "ECU_NAME", "FUEL_STATUS", "OBD_COMPLIANCE"]:
+        processed_val = str(val)  # Ensure string representation
+        unit = None  # These typically don't have units in the same sense
+    elif original_cmd_name_str == "STATUS":
+        # Value is a tuple (MIL_ON, DTC_COUNT, IGNITION_TYPE)
+        processed_val = val  # Return the tuple as is
+        unit = None
+    elif original_cmd_name_str == "GET_DTC":
+        # Value is a list of tuples [(CODE, DESCRIPTION), ...]
+        processed_val = val  # Return the list of tuples as is
+        unit = None
+    
+    # Default rounding for other numeric float types if not already a pint quantity
+    if isinstance(processed_val, float) and not hasattr(val, 'magnitude'):
+        processed_val = round(processed_val, 2)
+
+    return processed_val, unit
+
+async def query_obd_command(cmd_obj, original_cmd_name_str, client_addr=None):
+    """
+    Query a single OBD command asynchronously and process its response.
+
+    Args:
+        cmd_obj: The OBD command object to query.
+        original_cmd_name_str: The original string name of the command (for logging and mapping).
+        client_addr: Optional client address for logging.
+
+    Returns:
+        A tuple: (original_cmd_name_str, processed_value, unit_str, is_error_flag)
+        is_error_flag is True if query failed, response was null, or processing failed.
     """
     obd_connection = get_connection()
     address_info = f" for {client_addr}" if client_addr else ""
     
-    logger.debug(f"Querying {cmd.name}{address_info}...")
-    response = await asyncio.to_thread(obd_connection.query, cmd)
-    logger.debug(f"{cmd.name} response{address_info}: Raw={response}, Value={response.value}, Unit={response.unit}, IsNull={response.is_null()}")
-    
-    return response
+    try:
+        logger.debug(f"Querying {original_cmd_name_str} (obj: {cmd_obj.name}){address_info}...")
+        response = await asyncio.to_thread(obd_connection.query, cmd_obj)
+        logger.debug(f"{original_cmd_name_str} response{address_info}: Raw='{response}', Value='{response.value}', Unit='{response.unit}', IsNull={response.is_null()}")
+
+        if response.is_null():
+            # Logged by _process_individual_obd_response, but good to note here too
+            logger.debug(f"Command {original_cmd_name_str} returned a null response{address_info}.")
+            return original_cmd_name_str, None, None, True # True for is_error (due to null)
+        
+        processed_value, unit_str = _process_individual_obd_response(response, original_cmd_name_str)
+        
+        # If processed_value is None after _process_individual_obd_response (e.g. null or specific handling)
+        # consider it an "error" or ignorable state for generic assignment.
+        # STATUS and GET_DTC might return non-None processed_value that are complex types.
+        is_error_for_value_assignment = False
+        if processed_value is None and original_cmd_name_str not in ["STATUS", "GET_DTC", "FUEL_TYPE", "VIN", "ECU_NAME", "FUEL_STATUS", "OBD_COMPLIANCE"]:
+             is_error_for_value_assignment = True
+
+
+        return original_cmd_name_str, processed_value, unit_str, is_error_for_value_assignment
+
+    except Exception as e:
+        logger.error(f"Failed to query or process command {original_cmd_name_str}{address_info}: {e}", exc_info=True)
+        return original_cmd_name_str, None, None, True # True for is_error
 
 async def query_obd_data(client_addr=None):
     """
@@ -333,215 +381,168 @@ async def query_obd_data(client_addr=None):
         return data_to_send
     
     try:
-        # Query Standard PIDs
-        # Note: Not all vehicles support all PIDs - this is an extensive list
-        commands_to_query = [
-            # Currently implemented PIDs
-            obd.commands.RPM,
-            obd.commands.SPEED,
-            obd.commands.COOLANT_TEMP,
-            obd.commands.THROTTLE_POS,
-            obd.commands.FUEL_LEVEL,
-            obd.commands.ENGINE_LOAD,
-            
-            # Engine and Fuel System
-            obd.commands.INTAKE_TEMP,
-            obd.commands.MAF,
-            obd.commands.FUEL_PRESSURE,
-            obd.commands.FUEL_RAIL_PRESSURE,
-            obd.commands.FUEL_RAIL_PRESSURE_DIRECT,
-            obd.commands.FUEL_INJECT_TIMING,
-            obd.commands.FUEL_RATE,
-            obd.commands.SHORT_FUEL_TRIM_1,
-            obd.commands.LONG_FUEL_TRIM_1,
-            obd.commands.SHORT_FUEL_TRIM_2,
-            obd.commands.LONG_FUEL_TRIM_2,
-            obd.commands.FUEL_TYPE,
-            obd.commands.ETHANOL_PERCENT,
-            obd.commands.EVAP_VAPOR_PRESSURE,
-            
-            # Emissions System
-            obd.commands.O2_S1_WR_VOLTAGE,
-            obd.commands.O2_S2_WR_VOLTAGE,
-            obd.commands.CATALYST_TEMP_B1S1,
-            obd.commands.CATALYST_TEMP_B2S1,
-            obd.commands.EGR_ERROR,
-            obd.commands.COMMANDED_EGR,
-            obd.commands.EVAP_VAPOR_PRESSURE_ABS,
-            
-            # Additional Temperatures
-            obd.commands.AMBIENT_AIR_TEMP,
-            obd.commands.OIL_TEMP,
-            obd.commands.FUEL_TEMP,
-            
-            # Vehicle/Driving Dynamics
-            obd.commands.TIMING_ADVANCE,
-            obd.commands.ABSOLUTE_THROTTLE_POS,
-            obd.commands.RELATIVE_THROTTLE_POS,
-            obd.commands.ACCELERATOR_POS_D,
-            obd.commands.COMMANDED_THROTTLE_ACTUATOR,
-            obd.commands.INTAKE_PRESSURE,
-            obd.commands.BAROMETRIC_PRESSURE,
-            obd.commands.ABSOLUTE_LOAD,
-            obd.commands.RELATIVE_LOAD,
-            obd.commands.DISTANCE_W_MIL,
-            obd.commands.DISTANCE_SINCE_DTC_CLEAR,
-            obd.commands.RUN_TIME,
-            obd.commands.TIME_SINCE_DTC_CLEARED,
-            
-            # Battery/Electrical
-            obd.commands.CONTROL_MODULE_VOLTAGE,
-            obd.commands.HYBRID_BATTERY_REMAINING,
-            
-            # Advanced Engine Data
-            obd.commands.ENGINE_FRICTION_PERCENT,
-            obd.commands.DRIVER_DEMAND_ENGINE_TORQUE,
-            obd.commands.ACTUAL_ENGINE_TORQUE,
-            obd.commands.ENGINE_REFERENCE_TORQUE,
-            obd.commands.BOOST_PRESSURE_CONTROL,
-            obd.commands.CHARGE_AIR_TEMP,
-            
-            # Vehicle Information
-            obd.commands.VIN,
-            obd.commands.ECU_NAME,
-            obd.commands.FUEL_STATUS,
-            obd.commands.OBD_COMPLIANCE
+        # Map from desired command name (string) to the key in data_to_send dictionary
+        output_key_map = {
+            "RPM": "rpm", "SPEED": "speed", "COOLANT_TEMP": "coolant_temp",
+            "THROTTLE_POS": "throttle_pos", "FUEL_LEVEL": "fuel_level", "ENGINE_LOAD": "engine_load",
+            "INTAKE_TEMP": "intake_temp", "MAF": "maf", "FUEL_PRESSURE": "fuel_pressure",
+            "FUEL_RAIL_PRESSURE_ABS": "fuel_rail_pressure",
+            "FUEL_RAIL_PRESSURE_DIRECT": "fuel_rail_pressure_direct",
+            "FUEL_INJECTION_TIMING": "fuel_injection_timing", "FUEL_RATE": "fuel_rate",
+            "SHORT_FUEL_TRIM_1": "short_fuel_trim_1", "LONG_FUEL_TRIM_1": "long_fuel_trim_1",
+            "SHORT_FUEL_TRIM_2": "short_fuel_trim_2", "LONG_FUEL_TRIM_2": "long_fuel_trim_2",
+            "FUEL_TYPE": "fuel_type", "ETHANOL_PERCENT": "ethanol_percent",
+            "EVAP_VAPOR_PRESSURE": "evap_vapor_pressure",
+            "O2_S1_WR_VOLTAGE": "o2_sensor_1_voltage", "O2_S2_WR_VOLTAGE": "o2_sensor_2_voltage",
+            "CATALYST_TEMP_B1S1": "catalyst_temp_b1s1", "CATALYST_TEMP_B2S1": "catalyst_temp_b2s1",
+            "EGR_ERROR": "egr_error", "COMMANDED_EGR": "egr_commanded",
+            "EVAP_VAPOR_PRESSURE_ABS": "evap_vapor_pressure_abs",
+            "AMBIANT_AIR_TEMP": "ambient_air_temp", # Spelling from original
+            "OIL_TEMP": "engine_oil_temp", "FUEL_TEMP": "fuel_temp",
+            "TIMING_ADVANCE": "timing_advance", "ABSOLUTE_THROTTLE_POS": "abs_throttle_pos",
+            "RELATIVE_THROTTLE_POS": "rel_throttle_pos", "ACCELERATOR_POS_D": "accel_pedal_pos",
+            "COMMANDED_THROTTLE_ACTUATOR": "commanded_throttle",
+            "INTAKE_PRESSURE": "manifold_pressure", "BAROMETRIC_PRESSURE": "baro_pressure",
+            "ABSOLUTE_LOAD": "abs_load", "RELATIVE_LOAD": "rel_load",
+            "DISTANCE_W_MIL": "distance_with_mil",
+            "DISTANCE_SINCE_DTC_CLEAR": "distance_since_codes_cleared",
+            "RUN_TIME": "runtime_since_engine_start",
+            "TIME_SINCE_DTC_CLEARED": "time_since_codes_cleared",
+            "CONTROL_MODULE_VOLTAGE": "control_module_voltage",
+            "HYBRID_BATTERY_REMAINING": "hybrid_battery_remaining",
+            "ENGINE_FRICTION_PERCENT": "engine_friction_percent",
+            "DRIVER_DEMAND_ENGINE_TORQUE": "driver_demand_torque",
+            "ACTUAL_ENGINE_TORQUE": "actual_engine_torque",
+            "ENGINE_REFERENCE_TORQUE": "engine_ref_torque",
+            "CHARGE_AIR_TEMP": "charge_air_temp",
+            "VIN": "vin", "ECU_NAME": "ecu_name", "FUEL_STATUS": "fuel_system_status",
+            "OBD_COMPLIANCE": "obd_standards",
+            # STATUS and GET_DTC are handled specially after gather
+        }
+
+        # Define a list of command names (strings) we want to try.
+        # Includes standard PIDs and some vehicle info commands. STATUS is included.
+        # GET_DTC is handled conditionally later.
+        desired_command_names_for_gather = [
+            "RPM", "SPEED", "COOLANT_TEMP", "THROTTLE_POS", "FUEL_LEVEL", "ENGINE_LOAD",
+            "INTAKE_TEMP", "MAF", "FUEL_PRESSURE", "FUEL_RAIL_PRESSURE_ABS",
+            "FUEL_RAIL_PRESSURE_DIRECT", "FUEL_INJECTION_TIMING", "FUEL_RATE",
+            "SHORT_FUEL_TRIM_1", "LONG_FUEL_TRIM_1", "SHORT_FUEL_TRIM_2", "LONG_FUEL_TRIM_2",
+            "FUEL_TYPE", "ETHANOL_PERCENT", "EVAP_VAPOR_PRESSURE",
+            "O2_S1_WR_VOLTAGE", "O2_S2_WR_VOLTAGE", "CATALYST_TEMP_B1S1", "CATALYST_TEMP_B2S1",
+            "EGR_ERROR", "COMMANDED_EGR", "EVAP_VAPOR_PRESSURE_ABS", "AMBIANT_AIR_TEMP",
+            "OIL_TEMP", "FUEL_TEMP", "TIMING_ADVANCE", "ABSOLUTE_THROTTLE_POS",
+            "RELATIVE_THROTTLE_POS", "ACCELERATOR_POS_D", "COMMANDED_THROTTLE_ACTUATOR",
+            "INTAKE_PRESSURE", "BAROMETRIC_PRESSURE", "ABSOLUTE_LOAD", "RELATIVE_LOAD",
+            "DISTANCE_W_MIL", "DISTANCE_SINCE_DTC_CLEAR", "RUN_TIME", "TIME_SINCE_DTC_CLEARED",
+            "CONTROL_MODULE_VOLTAGE", "HYBRID_BATTERY_REMAINING", "ENGINE_FRICTION_PERCENT",
+            "DRIVER_DEMAND_ENGINE_TORQUE", "ACTUAL_ENGINE_TORQUE", "ENGINE_REFERENCE_TORQUE",
+            "CHARGE_AIR_TEMP",
+            "VIN", "ECU_NAME", "FUEL_STATUS", "OBD_COMPLIANCE", "STATUS"
         ]
         
-        responses = {}
-        for cmd in commands_to_query:
-            responses[cmd.name] = await query_obd_command(cmd, client_addr)
+        tasks = []
+        commands_to_attempt = [] # Store (cmd_obj, original_name_str)
 
-        # Process RPM
-        if responses["RPM"] and not responses["RPM"].is_null():
-            data_to_send["rpm"] = round(responses["RPM"].value.magnitude, 2) if hasattr(responses["RPM"].value, 'magnitude') else responses["RPM"].value
-            data_to_send["rpm_unit"] = str(responses["RPM"].unit)
-
-        # Process Speed (and convert to MPH)
-        if responses["SPEED"] and not responses["SPEED"].is_null():
-            speed_kmph = responses["SPEED"].value.magnitude if hasattr(responses["SPEED"].value, 'magnitude') else responses["SPEED"].value
-            data_to_send["speed"] = round(speed_kmph * 0.621371, 2)
-            # data_to_send["speed_unit"] is already "mph"
-
-        # Process Coolant Temp
-        if responses["COOLANT_TEMP"] and not responses["COOLANT_TEMP"].is_null():
-            data_to_send["coolant_temp"] = responses["COOLANT_TEMP"].value.magnitude if hasattr(responses["COOLANT_TEMP"].value, 'magnitude') else responses["COOLANT_TEMP"].value
-            data_to_send["coolant_temp_unit"] = str(responses["COOLANT_TEMP"].unit)
+        for name_str in desired_command_names_for_gather:
+            if hasattr(obd.commands, name_str):
+                cmd_obj = getattr(obd.commands, name_str)
+                commands_to_attempt.append((cmd_obj, name_str))
+            else:
+                logger.warning(f"OBD command '{name_str}' not found in obd.commands library. Skipping for gather.")
         
-        # Process Throttle Position
-        if responses["THROTTLE_POS"] and not responses["THROTTLE_POS"].is_null():
-            data_to_send["throttle_pos"] = round(responses["THROTTLE_POS"].value.magnitude, 2) if hasattr(responses["THROTTLE_POS"].value, 'magnitude') else responses["THROTTLE_POS"].value
-            data_to_send["throttle_pos_unit"] = str(responses["THROTTLE_POS"].unit)
+        for cmd_obj, original_name in commands_to_attempt:
+            tasks.append(query_obd_command(cmd_obj, original_name, client_addr))
 
-        # Process Fuel Level
-        if responses["FUEL_LEVEL"] and not responses["FUEL_LEVEL"].is_null():
-            data_to_send["fuel_level"] = round(responses["FUEL_LEVEL"].value.magnitude, 2) if hasattr(responses["FUEL_LEVEL"].value, 'magnitude') else responses["FUEL_LEVEL"].value
-            data_to_send["fuel_level_unit"] = str(responses["FUEL_LEVEL"].unit)
-
-        # Process Engine Load
-        if responses["ENGINE_LOAD"] and not responses["ENGINE_LOAD"].is_null():
-            data_to_send["engine_load"] = round(responses["ENGINE_LOAD"].value.magnitude, 2) if hasattr(responses["ENGINE_LOAD"].value, 'magnitude') else responses["ENGINE_LOAD"].value
-            data_to_send["engine_load_unit"] = str(responses["ENGINE_LOAD"].unit)
+        if tasks:
+            command_results = await asyncio.gather(*tasks, return_exceptions=True)
             
-        # Process additional data - Engine and Fuel System
-        _process_value(responses, "INTAKE_TEMP", data_to_send, "intake_temp")
-        _process_value(responses, "MAF", data_to_send, "maf")
-        _process_value(responses, "FUEL_PRESSURE", data_to_send, "fuel_pressure")
-        _process_value(responses, "FUEL_RAIL_PRESSURE", data_to_send, "fuel_rail_pressure")
-        _process_value(responses, "FUEL_RAIL_PRESSURE_DIRECT", data_to_send, "fuel_rail_pressure_direct")
-        _process_value(responses, "FUEL_INJECT_TIMING", data_to_send, "fuel_injection_timing")
-        _process_value(responses, "FUEL_RATE", data_to_send, "fuel_rate")
-        _process_value(responses, "SHORT_FUEL_TRIM_1", data_to_send, "short_fuel_trim_1")
-        _process_value(responses, "LONG_FUEL_TRIM_1", data_to_send, "long_fuel_trim_1")
-        _process_value(responses, "SHORT_FUEL_TRIM_2", data_to_send, "short_fuel_trim_2")
-        _process_value(responses, "LONG_FUEL_TRIM_2", data_to_send, "long_fuel_trim_2")
-        
-        # Special handling for string values
-        if "FUEL_TYPE" in responses and not responses["FUEL_TYPE"].is_null():
-            data_to_send["fuel_type"] = str(responses["FUEL_TYPE"].value)
-        
-        _process_value(responses, "ETHANOL_PERCENT", data_to_send, "ethanol_percent")
-        _process_value(responses, "EVAP_VAPOR_PRESSURE", data_to_send, "evap_vapor_pressure")
-        
-        # Process Emissions System data
-        _process_value(responses, "O2_S1_WR_VOLTAGE", data_to_send, "o2_sensor_1_voltage")
-        _process_value(responses, "O2_S2_WR_VOLTAGE", data_to_send, "o2_sensor_2_voltage")
-        _process_value(responses, "CATALYST_TEMP_B1S1", data_to_send, "catalyst_temp_b1s1")
-        _process_value(responses, "CATALYST_TEMP_B2S1", data_to_send, "catalyst_temp_b2s1")
-        _process_value(responses, "EGR_ERROR", data_to_send, "egr_error")
-        _process_value(responses, "COMMANDED_EGR", data_to_send, "egr_commanded")
-        _process_value(responses, "EVAP_VAPOR_PRESSURE_ABS", data_to_send, "evap_vapor_pressure_abs")
-        
-        # Process Additional Temperature data
-        _process_value(responses, "AMBIENT_AIR_TEMP", data_to_send, "ambient_air_temp")
-        _process_value(responses, "OIL_TEMP", data_to_send, "engine_oil_temp")
-        _process_value(responses, "FUEL_TEMP", data_to_send, "fuel_temp")
-        
-        # Process Vehicle/Driving Dynamics data
-        _process_value(responses, "TIMING_ADVANCE", data_to_send, "timing_advance")
-        _process_value(responses, "ABSOLUTE_THROTTLE_POS", data_to_send, "abs_throttle_pos")
-        _process_value(responses, "RELATIVE_THROTTLE_POS", data_to_send, "rel_throttle_pos")
-        _process_value(responses, "ACCELERATOR_POS_D", data_to_send, "accel_pedal_pos")
-        _process_value(responses, "COMMANDED_THROTTLE_ACTUATOR", data_to_send, "commanded_throttle")
-        _process_value(responses, "INTAKE_PRESSURE", data_to_send, "manifold_pressure")
-        _process_value(responses, "BAROMETRIC_PRESSURE", data_to_send, "baro_pressure")
-        _process_value(responses, "ABSOLUTE_LOAD", data_to_send, "abs_load")
-        _process_value(responses, "RELATIVE_LOAD", data_to_send, "rel_load")
-        _process_value(responses, "DISTANCE_W_MIL", data_to_send, "distance_with_mil")
-        _process_value(responses, "DISTANCE_SINCE_DTC_CLEAR", data_to_send, "distance_since_codes_cleared")
-        _process_value(responses, "RUN_TIME", data_to_send, "runtime_since_engine_start")
-        _process_value(responses, "TIME_SINCE_DTC_CLEARED", data_to_send, "time_since_codes_cleared")
-        
-        # Process Battery/Electrical data
-        _process_value(responses, "CONTROL_MODULE_VOLTAGE", data_to_send, "control_module_voltage")
-        _process_value(responses, "HYBRID_BATTERY_REMAINING", data_to_send, "hybrid_battery_remaining")
-        
-        # Process Advanced Engine data
-        _process_value(responses, "ENGINE_FRICTION_PERCENT", data_to_send, "engine_friction_percent")
-        _process_value(responses, "DRIVER_DEMAND_ENGINE_TORQUE", data_to_send, "driver_demand_torque")
-        _process_value(responses, "ACTUAL_ENGINE_TORQUE", data_to_send, "actual_engine_torque")
-        _process_value(responses, "ENGINE_REFERENCE_TORQUE", data_to_send, "engine_ref_torque")
-        _process_value(responses, "BOOST_PRESSURE_CONTROL", data_to_send, "boost_pressure")
-        _process_value(responses, "CHARGE_AIR_TEMP", data_to_send, "charge_air_temp")
-        
-        # Process Vehicle Information
-        if "VIN" in responses and not responses["VIN"].is_null():
-            vin_value = str(responses["VIN"].value)
-            data_to_send["vin"] = vin_value
-            
-            # Decode VIN to extract additional information
-            if vin_value and len(vin_value) == 17:  # Standard VIN length
-                vehicle_info = decode_vin(vin_value)
-                data_to_send["vehicle_make"] = vehicle_info["make"]
-                data_to_send["vehicle_year"] = vehicle_info["model_year"]
-                data_to_send["vehicle_country"] = vehicle_info["country"]
-                logger.debug(f"Decoded VIN: {vin_value} -> Make: {vehicle_info['make']}, Year: {vehicle_info['model_year']}, Country: {vehicle_info['country']}")
-        
-        if "ECU_NAME" in responses and not responses["ECU_NAME"].is_null():
-            data_to_send["ecu_name"] = str(responses["ECU_NAME"].value)
-        
-        if "FUEL_STATUS" in responses and not responses["FUEL_STATUS"].is_null():
-            data_to_send["fuel_system_status"] = str(responses["FUEL_STATUS"].value)
-        
-        if "OBD_COMPLIANCE" in responses and not responses["OBD_COMPLIANCE"].is_null():
-            data_to_send["obd_standards"] = str(responses["OBD_COMPLIANCE"].value)
+            for result in command_results:
+                if isinstance(result, Exception):
+                    # query_obd_command logs its own specific errors.
+                    # This is for exceptions from gather itself or unhandled ones in query_obd_command.
+                    logger.error(f"Exception during batched OBD query for {client_addr}: {result}", exc_info=result)
+                    continue
 
-        # Query DTCs and MIL Status
-        status_response = await query_obd_command(obd.commands.STATUS, client_addr)
-        if status_response and not status_response.is_null():
-            # STATUS command value is a tuple: (MIL_ON, DTC_COUNT, IGNITION_TYPE)
-            data_to_send["mil_on"] = status_response.value[0] if isinstance(status_response.value, tuple) and len(status_response.value) > 0 else False
-            data_to_send["dtc_count"] = status_response.value[1] if isinstance(status_response.value, tuple) and len(status_response.value) > 1 else 0
+                original_cmd_name, val, unit, is_error = result
+                
+                if is_error and val is None : # Error or null value not suitable for direct assignment
+                    logger.debug(f"Skipping assignment for {original_cmd_name} due to error or null/unsuitable value.")
+                    continue
+
+                # Handle special commands first
+                if original_cmd_name == "STATUS":
+                    if isinstance(val, tuple) and len(val) >= 2:
+                        data_to_send["mil_on"] = bool(val[0])
+                        data_to_send["dtc_count"] = int(val[1])
+                    else:
+                        logger.warning(f"STATUS command for {client_addr} returned unexpected value: {val}")
+                        data_to_send["mil_on"] = False
+                        data_to_send["dtc_count"] = 0
+                elif original_cmd_name == "VIN":
+                    data_to_send["vin"] = val # val is already str from _process_individual_obd_response
+                    if val and len(val) == 17:
+                        vehicle_info = decode_vin(val)
+                        data_to_send["vehicle_make"] = vehicle_info["make"]
+                        data_to_send["vehicle_year"] = vehicle_info["model_year"]
+                        data_to_send["vehicle_country"] = vehicle_info["country"]
+                        logger.debug(f"Decoded VIN: {val} -> Make: {vehicle_info['make']}, Year: {vehicle_info['model_year']}, Country: {vehicle_info['country']}")
+                else:
+                    # Standard command processing using output_key_map
+                    output_key = output_key_map.get(original_cmd_name)
+                    if output_key:
+                        data_to_send[output_key] = val
+                        if unit: # Unit might be None for some (e.g. FUEL_TYPE)
+                            data_to_send[f"{output_key}_unit"] = unit
+                        # Ensure default units are set if not provided by command and key exists
+                        elif f"{output_key}_unit" not in data_to_send and f"{output_key}_unit" in data_to_send: # Check if unit key pre-exists
+                             pass # Keep pre-set default unit
+                    else:
+                        logger.warning(f"No output key mapping found for command: {original_cmd_name} for {client_addr}. Value: {val}")
         
-        if data_to_send["mil_on"] and data_to_send["dtc_count"] > 0:
+        # Conditionally query GET_DTC based on STATUS results
+        if data_to_send.get("mil_on") and data_to_send.get("dtc_count", 0) > 0:
             logger.debug(f"MIL is ON, DTC count: {data_to_send['dtc_count']}. Querying DTCs for {client_addr}...")
-            dtc_response = await query_obd_command(obd.commands.GET_DTC, client_addr)
-            if dtc_response and not dtc_response.is_null():
-                # GET_DTC value is a list of tuples: [(CODE, DESCRIPTION), ...]
-                data_to_send["dtcs"] = [{"code": dtc[0], "desc": dtc[1]} for dtc in dtc_response.value]
-        
+            dtc_cmd_obj = getattr(obd.commands, "GET_DTC", None)
+            if dtc_cmd_obj:
+                # Query GET_DTC as a separate call since it's conditional
+                dtc_result_tuple = await query_obd_command(dtc_cmd_obj, "GET_DTC", client_addr)
+                # dtc_result_tuple is (original_cmd_name, val, unit, is_error)
+                # For GET_DTC, val should be a list of tuples [(CODE, DESCRIPTION), ...]
+                if dtc_result_tuple and not dtc_result_tuple[3] and dtc_result_tuple[1] is not None: # not is_error and val is not None
+                    dtc_list = dtc_result_tuple[1]
+                    data_to_send["dtcs"] = [{"code": dtc[0], "desc": dtc[1]} for dtc in dtc_list if isinstance(dtc, tuple) and len(dtc) == 2]
+                elif dtc_result_tuple and dtc_result_tuple[3]: # is_error
+                     logger.error(f"Failed to query GET_DTC for {client_addr} (error flag set).")
+                else: # val is None or other issue
+                     logger.warning(f"GET_DTC query for {client_addr} did not return expected data: {dtc_result_tuple}")
+            else:
+                logger.warning("GET_DTC command not found in obd.commands library.")
+
+        # Calculate Boost Pressure (dependent on manifold_pressure and baro_pressure from gather)
+        intake_pressure_val = data_to_send.get('manifold_pressure')
+        baro_pressure_val = data_to_send.get('baro_pressure')
+
+        if intake_pressure_val is not None and baro_pressure_val is not None:
+            try:
+                calculated_boost = float(intake_pressure_val) - float(baro_pressure_val)
+                data_to_send['boost_pressure'] = round(calculated_boost, 2)
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    f"Could not calculate boost pressure for {client_addr} due to invalid "
+                    f"intake/baro values. Intake: '{intake_pressure_val}', Baro: '{baro_pressure_val}'. Error: {e}"
+                )
+                data_to_send['boost_pressure'] = None
+        else:
+            missing_vals_log = []
+            if intake_pressure_val is None: missing_vals_log.append("manifold_pressure (intake)")
+            if baro_pressure_val is None: missing_vals_log.append("baro_pressure")
+            if missing_vals_log:
+                 logger.debug(f"Boost pressure not calculated for {client_addr}, missing: {', '.join(missing_vals_log)}.")
+            data_to_send['boost_pressure'] = None
+            
         data_to_send["status"] = "OK"
-        
+
     except Exception as e:
         logger.error(f"Error querying OBD or processing data for {client_addr}: {e}", exc_info=True)
         data_to_send["status"] = "OBD_QUERY_ERROR"

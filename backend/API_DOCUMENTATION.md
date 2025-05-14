@@ -66,7 +66,6 @@ All data is exchanged as JSON. Each message from the server contains the latest 
 |------------|-----------|------|-------------|
 | `rpm` | number | rpm | Engine revolutions per minute |
 | `speed` | number | mph | Vehicle speed (converted from km/h to mph) |
-| `coolant_temp` | number | celsius | Engine coolant temperature |
 | `throttle_pos` | number | % | Throttle position percentage |
 | `engine_load` | number | % | Calculated engine load percentage |
 
@@ -92,11 +91,9 @@ All data is exchanged as JSON. Each message from the server contains the latest 
 
 | Field Name | Data Type | Unit | Description |
 |------------|-----------|------|-------------|
-| `intake_temp` | number | celsius | Intake air temperature |
 | `maf` | number | grams/sec | Mass Air Flow rate |
 | `manifold_pressure` | number | kPa | Intake manifold pressure |
 | `boost_pressure` | number | kPa | Boost pressure control |
-| `charge_air_temp` | number | celsius | Charge air cooler temperature |
 
 ### Emissions System
 
@@ -107,8 +104,6 @@ All data is exchanged as JSON. Each message from the server contains the latest 
 | `dtcs` | array | - | List of Diagnostic Trouble Codes with descriptions |
 | `o2_sensor_1_voltage` | number | V | Oxygen sensor 1 voltage |
 | `o2_sensor_2_voltage` | number | V | Oxygen sensor 2 voltage |
-| `catalyst_temp_b1s1` | number | celsius | Catalyst temperature bank 1, sensor 1 |
-| `catalyst_temp_b2s1` | number | celsius | Catalyst temperature bank 2, sensor 1 |
 | `egr_error` | number | % | Exhaust Gas Recirculation error |
 | `egr_commanded` | number | % | Commanded EGR value |
 | `evap_vapor_pressure` | number | Pa | Evaporative system vapor pressure |
@@ -120,6 +115,7 @@ All data is exchanged as JSON. Each message from the server contains the latest 
 |------------|-----------|------|-------------|
 | `coolant_temp` | number | celsius | Engine coolant temperature |
 | `intake_temp` | number | celsius | Intake air temperature |
+| `charge_air_temp` | number | celsius | Charge air cooler temperature |
 | `ambient_air_temp` | number | celsius | Ambient air temperature |
 | `engine_oil_temp` | number | celsius | Engine oil temperature |
 | `fuel_temp` | number | celsius | Fuel temperature |
@@ -185,6 +181,16 @@ If an error occurs during OBD querying, the response will include:
   "error_details": "Error message"
 }
 ```
+
+If the OBD connection is established but no protocol is detected, the response will be:
+
+```json
+{
+  "status": "OBD_NO_PROTOCOL"
+}
+```
+
+Generic streaming errors, such as those arising from WebSocket connection issues (as handled in [`backend/websocket_server.py`](backend/websocket_server.py:75)), may result in the WebSocket connection being closed. Clients should be prepared to handle such disconnections and may receive standard WebSocket error codes.
 
 If the OBD connection is not available, the response will include:
 

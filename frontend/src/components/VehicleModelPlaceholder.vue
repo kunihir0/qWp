@@ -1,14 +1,32 @@
 <script setup lang="ts">
-// No props needed for initial static display
+defineProps({
+  vehicleMake: {
+    type: String,
+    default: 'N/A'
+  },
+  vehicleYear: {
+    type: [Number, String], // Allow string for 'N/A'
+    default: 'N/A'
+  },
+  vin: {
+    type: String,
+    default: 'N/A'
+  }
+});
 </script>
 
 <template>
   <div class="vehicle-model-placeholder glass-panel">
     <div class="model-container">
-      <div class="model-label">Model S</div>
+      <div class="model-label">
+        {{ vehicleMake }} {{ vehicleYear !== 'N/A' ? `(${vehicleYear})` : '' }}
+      </div>
       <div class="model-placeholder">
         <div class="car-silhouette"></div>
-        <span class="placeholder-text">3D Model Visualization</span>
+        <span class="placeholder-text">{{ vin !== 'N/A' ? `VIN: ${vin}` : 'Vehicle Information' }}</span>
+      </div>
+      <div v-if="vehicleMake === 'N/A' && vin === 'N/A'" class="info-unavailable">
+        Vehicle data not available
       </div>
     </div>
   </div>
@@ -55,13 +73,15 @@
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm); /* Reduced margin */
   text-transform: uppercase;
   letter-spacing: 1.5px;
+  text-align: center; /* Center the make/year */
 }
 
 .model-placeholder {
   flex: 1; /* Take remaining space */
+  min-height: 150px; /* Ensure space for silhouette */
   width: 100%;
   background: rgba(0, 0, 0, 0.2);
   border: 1px dashed rgba(255, 255, 255, 0.15);
@@ -87,14 +107,21 @@
 }
 
 .placeholder-text {
-  font-size: 1rem;
+  font-size: 0.85rem; /* Slightly smaller VIN text */
   color: var(--text-secondary);
   letter-spacing: 1px;
   position: relative;
   z-index: 2;
-  padding: 0 15px;
+  padding: var(--spacing-xs) 10px; /* Adjusted padding */
   text-align: center;
   text-transform: uppercase;
   font-weight: 400;
+  word-break: break-all; /* Break long VINs */
+}
+
+.info-unavailable {
+  margin-top: var(--spacing-sm);
+  font-size: 0.8rem;
+  color: var(--text-dim);
 }
 </style>
