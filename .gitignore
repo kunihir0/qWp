@@ -4,3 +4,4 @@ backend/__pycache__
 elm.log
 elm.log*
 tmux-client-*
+backend.log
