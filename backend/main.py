@@ -15,8 +15,19 @@ async def main_async_runner():
     """
     logger.debug("ENTER: main_async_runner")
     
-    # Initialize OBD connection
-    initialize_obd_connection(OBD_EMULATOR_HOST, OBD_EMULATOR_PORT)
+    # Initialize OBD connection with retry mechanism
+    connection_success = initialize_obd_connection(
+        OBD_EMULATOR_HOST,
+        OBD_EMULATOR_PORT,
+        max_retries=3,
+        retry_delay=2.0
+    )
+    
+    if not connection_success:
+        logger.error(f"Failed to connect to ELM327 emulator at {OBD_EMULATOR_HOST}:{OBD_EMULATOR_PORT}")
+        logger.warning("Application will continue but OBD functionality may be limited")
+    else:
+        logger.info(f"Successfully connected to ELM327 emulator at {OBD_EMULATOR_HOST}:{OBD_EMULATOR_PORT}")
     
     # Start WebSocket server
     await start_server(WS_HOST, WS_PORT)

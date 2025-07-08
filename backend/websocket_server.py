@@ -48,9 +48,14 @@ async def stream_obd_data_to_client(websocket):
                 await asyncio.sleep(2)
                 continue
                 
+            # Count non-null values in the data_to_send
+            non_null_values = sum(1 for key, value in data_to_send.items()
+                              if value is not None and not key.endswith('_unit') and key != 'status' and key != 'dtcs')
+            
             # Send the collected data
             json_payload_final = json.dumps(data_to_send)
-            logger.debug(f"Sending final data packet to {client_addr}: {json_payload_final}")
+            logger.debug(f"Sending final data packet to {client_addr} with {non_null_values} non-null values")
+            logger.debug(f"Sample values - RPM: {data_to_send.get('rpm')}, Speed: {data_to_send.get('speed')}, Coolant: {data_to_send.get('coolant_temp')}")
             try:
                 await websocket.send(json_payload_final)
             except websockets.exceptions.ConnectionClosed:

@@ -220,11 +220,12 @@ const initialOBDDataState: OBDData = {
 const obdData = reactive<OBDData>({...initialOBDDataState});
 
 // WebSocket configuration
-const wsUrl = 'ws://localhost:8765';
+const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8765';
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const reconnectAttempts = ref(0);
+const INITIAL_RECONNECT_DELAY = 1000; // Start with 1 second
 
 // State variables
 const connectionStatus = ref<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
@@ -333,9 +334,23 @@ const connectWebSocket = () => {
   
   socket.onmessage = (event) => {
     try {
-      const receivedData = JSON.parse(event.data as string) as Partial<OBDData>;
+      // First verify we have data
+      if (!event.data) {
+        throw new Error('Empty WebSocket message received');
+      }
+      
+      // Parse the data with validation
+      const rawData = event.data as string;
+      const receivedData = JSON.parse(rawData) as Partial<OBDData>;
+      
+      // Log the received data
       console.log("Raw data received from WebSocket:", receivedData);
-
+      
+      // Validate the received data has expected format
+      if (!receivedData || typeof receivedData !== 'object') {
+        throw new Error('Invalid WebSocket message format: not an object');
+      }
+      
       // Update the comprehensive reactive object
       for (const key in receivedData) {
         if (Object.prototype.hasOwnProperty.call(receivedData, key) && key in obdData) {
@@ -362,6 +377,10 @@ const connectWebSocket = () => {
       lastError.value = 'Failed to parse server message';
       messages.value.push(`Parse error: ${e instanceof Error ? e.message : String(e)}`);
       console.error("WebSocket message parse error:", e);
+      
+      // Update connection status to error state when parse errors occur
+      // This ensures UI reflects issue with data processing
+      connectionStatus.value = 'error';
     }
   };
   
@@ -377,8 +396,15 @@ const connectWebSocket = () => {
     
     if (!event.wasClean && reconnectAttempts.value < MAX_RECONNECT_ATTEMPTS) {
       reconnectAttempts.value++;
-      messages.value.push(`Reconnect attempt ${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS}...`);
-      reconnectTimer = setTimeout(connectWebSocket, 2000) as unknown as number;
+      
+      // Calculate delay with exponential backoff: 1s, 2s, 4s, 8s, 16s
+      const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts.value - 1);
+      
+      messages.value.push(`Reconnect attempt ${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS} in ${delay/1000}s...`);
+      reconnectTimer = setTimeout(connectWebSocket, delay) as unknown as number;
+    } else if (reconnectAttempts.value >= MAX_RECONNECT_ATTEMPTS) {
+      messages.value.push('Maximum reconnection attempts reached. Please check server status or refresh page.');
+      lastError.value = 'Failed to connect after multiple attempts';
     }
   };
   
